@@ -1,0 +1,38 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../Mrg32k3a.NET",
+          "files": ["Mrg32k3a.NET.csproj"]
+        }
+      ],
+      "dest": "api",
+      "properties": {
+        "TargetFramework": "net10.0"
+      }
+    }
+  ],
+  "build": {
+    "content": [
+      { "files": ["api/**.yml"] },
+      { "files": ["articles/**.md", "articles/**/toc.yml", "toc.yml", "*.md"] }
+    ],
+    "output": "_site",
+    "template": ["default", "modern", "template"],
+    "globalMetadata": {
+      "_appName": "Mrg32k3a.NET",
+      "_appTitle": "Mrg32k3a.NET",
+      "_appFooter": "Mrg32k3a.NET is licensed under the <a href=\"https://www.apache.org/licenses/LICENSE-2.0\">Apache License 2.0</a>.",
+      "_enableSearch": true,
+      "_gitContribute": {
+        "repo": "https://github.com/Simverk/Mrg32k3a.NET",
+        "branch": "main"
+      }
+    },
+    "sitemap": {
+      "baseUrl": "https://simverk.github.io/Mrg32k3a.NET"
+    }
+  }
+}
