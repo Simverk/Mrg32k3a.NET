@@ -1,0 +1,34 @@
+## Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+## Test and coverage output
+TestResults/
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage*.info
+
+## Benchmark output
+BenchmarkDotNet.Artifacts/
+
+## Packaging
+*.nupkg
+*.snupkg
+
+## IDE and user-specific files
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userprefs
+*.DotSettings.user
+
+## OS noise
+.DS_Store
+Thumbs.db

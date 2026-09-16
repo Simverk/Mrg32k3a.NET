@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>netstandard2.0;net8.0;net10.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <Deterministic>true</Deterministic>
+        <RootNamespace>Mrg32k3a.NET</RootNamespace>
+        <AssemblyName>Mrg32k3a.NET</AssemblyName>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(TargetFramework)' != 'netstandard2.0'">
+        <IsTrimmable>true</IsTrimmable>
+        <IsAotCompatible>true</IsAotCompatible>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>Mrg32k3a.NET</PackageId>
+        <Description>Dependency-free managed implementation of L'Ecuyer's MRG32k3a combined multiple recursive generator with the multiple-stream and substream partitioning of L'Ecuyer, Simard, Chen and Kelton (2002).</Description>
+        <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+        <PackageTags>random;rng;mrg32k3a;streams;substreams;simulation;monte-carlo;lecuyer</PackageTags>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Mrg32k3a.NET.Tests"/>
+        <InternalsVisibleTo Include="Mrg32k3a.NET.Tests.NetStandard"/>
+    </ItemGroup>
+
+</Project>

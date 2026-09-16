@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+        Runs the shared test suite against the netstandard2.0 build of the library. The test sources
+        live in Mrg32k3a.NET.Tests; tests of APIs that only exist in the net8.0+ builds are compiled
+        out by the LIBRARY_NETSTANDARD2_0 symbol.
+    -->
+
+    <PropertyGroup>
+        <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+        <DefineConstants>$(DefineConstants);LIBRARY_NETSTANDARD2_0</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector" Version="6.0.4"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
+        <PackageReference Include="xunit" Version="2.9.3"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Mrg32k3a.NET\Mrg32k3a.NET.csproj" SetTargetFramework="TargetFramework=netstandard2.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Xunit"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\Mrg32k3a.NET.Tests\**\*.cs" Exclude="..\Mrg32k3a.NET.Tests\bin\**;..\Mrg32k3a.NET.Tests\obj\**" LinkBase="Shared"/>
+        <EmbeddedResource Include="..\Mrg32k3a.NET.Tests\GoldenVectors.txt" Link="GoldenVectors.txt"/>
+        <None Include="..\Mrg32k3a.NET.Tests\rngstreams-vectors.tar.gz" Link="rngstreams-vectors.tar.gz" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+</Project>
