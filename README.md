@@ -1,0 +1,45 @@
+# Mrg32k3a.NET
+
+A pseudo-random number generator for .NET that provides many independent streams of random
+numbers. It is based on Pierre L'Ecuyer's **MRG32k3a** combined multiple recursive generator, with
+streams and substreams as described by L'Ecuyer, Simard, Chen and Kelton (2002). It is written
+entirely in C# and has no dependencies.
+
+- Independent streams of 2^127 values, each split into 2^51 substreams of 2^76 values
+- Bit-for-bit reproducible across netstandard2.0, net8.0 and net10.0, and across x64 and ARM64
+- Rewinds for common random numbers, antithetic variates, and 53-bit precision draws
+- Serializable stream snapshots and a `System.Random` adapter
+
+## Install
+
+```bash
+dotnet add package Mrg32k3a.NET
+```
+
+## Example
+
+```csharp
+using Mrg32k3a.NET;
+
+var factory = new RandomStreamFactory();
+var arrivals = factory.CreateStream("arrivals");
+var service = factory.CreateStream("service");
+
+for (var replication = 0; replication < 100; replication++)
+{
+    double u = arrivals.NextDouble();
+    int k = service.NextInt32Inclusive(1, 6);
+    // ...
+
+    arrivals.SkipToNextSubstream();
+    service.SkipToNextSubstream();
+}
+```
+
+## Documentation
+
+Guides and the API reference are at **https://simverk.github.io/Mrg32k3a.NET**.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
