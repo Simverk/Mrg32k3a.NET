@@ -4,6 +4,7 @@ Some APIs expect a `System.Random`. <xref:Mrg32k3a.NET.RandomStream.AsRandom*> w
 <xref:Mrg32k3a.NET.StreamBackedRandom>, which inherits from `Random`:
 
 ```csharp
+var factory = new RandomStreamFactory();
 RandomStream stream = factory.CreateStream("shuffle");
 Random random = stream.AsRandom();
 
