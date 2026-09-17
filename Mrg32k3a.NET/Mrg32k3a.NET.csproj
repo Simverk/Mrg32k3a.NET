@@ -21,6 +21,8 @@
 
     <PropertyGroup>
         <PackageId>Mrg32k3a.NET</PackageId>
+        <Authors>The Mrg32k3a.NET Contributors</Authors>
+        <Copyright>Copyright 2026 The Mrg32k3a.NET Contributors</Copyright>
         <Description>Dependency-free managed implementation of L'Ecuyer's MRG32k3a combined multiple recursive generator with the multiple-stream and substream partitioning of L'Ecuyer, Simard, Chen and Kelton (2002).</Description>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <PackageTags>random;rng;mrg32k3a;streams;substreams;simulation;monte-carlo;lecuyer</PackageTags>
@@ -29,6 +31,11 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageProjectUrl>https://simverk.github.io/Mrg32k3a.NET</PackageProjectUrl>
         <RepositoryUrl>https://github.com/Simverk/Mrg32k3a.NET</RepositoryUrl>
+        <EnablePackageValidation>true</EnablePackageValidation>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <ItemGroup>
