@@ -29,8 +29,8 @@ Set `Version` to 2 and add `SubstreamIndex` with the substream the stream was on
 
 The index is counted from `StreamStart`, and the three have to agree: jumping `SubstreamIndex`
 substreams forward from `StreamStart` must land on `SubstreamStart` exactly. `LoadState` and
-`FromState` recompute that jump and refuse the snapshot when it does not, so a guessed index does
-not load.
+`FromState` recompute that jump and throw an `ArgumentException` when it does not, so a guessed
+index does not load.
 
 ### Where the index comes from
 
