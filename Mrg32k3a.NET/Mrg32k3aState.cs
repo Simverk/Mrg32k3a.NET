@@ -56,12 +56,12 @@ public readonly struct Mrg32k3aState : IEquatable<Mrg32k3aState>
             throw new ArgumentNullException(nameof(values));
         }
 
-        if (!StreamStateVector.Validate(values, out var error))
+        if (!StreamStateVector.TryFromArray(values, out var vector, out var error))
         {
             throw new ArgumentException(error, nameof(values));
         }
 
-        _vector = StreamStateVector.FromArray(values);
+        _vector = vector;
     }
 
     internal Mrg32k3aState(StreamStateVector vector)
@@ -114,13 +114,13 @@ public readonly struct Mrg32k3aState : IEquatable<Mrg32k3aState>
     /// <returns><see langword="true"/> when the values form a usable state.</returns>
     public static bool TryCreate(uint[]? values, out Mrg32k3aState state, out string? error)
     {
-        if (!StreamStateVector.Validate(values!, out error))
+        if (!StreamStateVector.TryFromArray(values, out var vector, out error))
         {
             state = default;
             return false;
         }
 
-        state = new Mrg32k3aState(StreamStateVector.FromArray(values!));
+        state = new Mrg32k3aState(vector);
         return true;
     }
 

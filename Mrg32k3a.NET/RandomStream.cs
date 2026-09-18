@@ -838,14 +838,14 @@ public sealed class RandomStream
 
     private static StreamStateVector RequireValid(uint[] values, string parameterName, string field)
     {
-        if (!StreamStateVector.Validate(values, out var error))
+        if (!StreamStateVector.TryFromArray(values, out var vector, out var error))
         {
             throw new ArgumentException(
                 FormattableString.Invariant($"The {field} vector of the state is invalid. {error}"),
                 parameterName);
         }
 
-        return StreamStateVector.FromArray(values);
+        return vector;
     }
 
     private static void ValidateRange<T>(T[] buffer, int offset, int count)
