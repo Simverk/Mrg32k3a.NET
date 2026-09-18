@@ -157,6 +157,51 @@ public class SerializationTests
     };
 
     [Fact]
+    public void ASnapshotWhoseSubstreamStartDisagreesWithItsIndexIsRefused()
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+        stream.SkipToSubstream(3);
+        var snapshot = stream.SaveState();
+
+        // The vectors stay valid on their own; only their agreement with the index is broken.
+        snapshot.SubstreamIndex = 4;
+
+        var error = Assert.Throws<ArgumentException>(() => RandomStream.FromState(snapshot));
+        Assert.Contains("SubstreamStart", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ASnapshotWithASubstreamStartFromAnotherStreamIsRefused()
+    {
+        // A snapshot claiming substream zero while its anchor sits in a different stream's block
+        // would let the substream guards authorise a jump right out of the block they are guarding.
+        var factory = new RandomStreamFactory();
+        var snapshot = factory.CreateStreamAt(0).SaveState();
+        snapshot.SubstreamStart = factory.CreateStreamAt(7).StreamStartState.ToArray();
+
+        var error = Assert.Throws<ArgumentException>(() => RandomStream.FromState(snapshot));
+        Assert.Contains("SubstreamStart", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(9)]
+    [InlineData(1_000_000)]
+    [InlineData((1L << 51) - 1)]
+    public void AnHonestSnapshotAtAnySubstreamIsAccepted(long index)
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+        stream.SkipToSubstream(index);
+
+        var restored = RandomStream.FromState(stream.SaveState());
+
+        Assert.Equal(index, restored.SubstreamIndex);
+        Assert.Equal(stream.SubstreamStartState, restored.SubstreamStartState);
+        Assert.Equal(stream.NextDouble(), restored.NextDouble());
+    }
+
+    [Fact]
     public void ANullSnapshotIsRefused()
     {
         Assert.Throws<ArgumentNullException>(() => RandomStream.FromState(null!));

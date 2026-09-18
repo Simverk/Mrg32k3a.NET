@@ -262,8 +262,9 @@ public sealed class RandomStream
                     $"The index must be between 0 and {SubstreamsPerStream - 1} inclusive, the substreams a stream holds."));
         }
 
-        RewindStream();
-        SkipSubstreams(index);
+        _substreamStart = SubstreamStartAt(_streamStart, index);
+        _current = _substreamStart;
+        _substreamIndex = index;
     }
 
     /// <summary>
@@ -588,6 +589,13 @@ public sealed class RandomStream
     /// <param name="state">The snapshot to restore.</param>
     /// <exception cref="ArgumentNullException"><paramref name="state"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">The snapshot is of an unknown version or holds an invalid state.</exception>
+    /// <remarks>
+    /// The anchors of a snapshot have to agree: <c>SubstreamStart</c> must be the start of substream
+    /// <c>SubstreamIndex</c> of <c>StreamStart</c>, the relation every stream this library produces
+    /// satisfies. Checking it costs one modular matrix exponentiation and is what keeps a restored
+    /// stream inside its own block, since the substream operations trust the index to say where the
+    /// stream is.
+    /// </remarks>
     public void LoadState(RandomStreamState state)
     {
         if (state is null)
@@ -611,6 +619,14 @@ public sealed class RandomStream
             throw new ArgumentException(
                 FormattableString.Invariant(
                     $"The SubstreamIndex of the state is invalid. It must be below {SubstreamsPerStream}."),
+                nameof(state));
+        }
+
+        if (!SubstreamStartAt(streamStart, state.SubstreamIndex).Equals(substreamStart))
+        {
+            throw new ArgumentException(
+                FormattableString.Invariant(
+                    $"The SubstreamStart of the state is invalid. It must be the start of substream {state.SubstreamIndex} of StreamStart."),
                 nameof(state));
         }
 
@@ -751,6 +767,26 @@ public sealed class RandomStream
         }
 
         return u <= 0.0 ? HighPrecisionFloor : u;
+    }
+
+    /// <summary>Returns the start of substream <paramref name="index"/> of the stream starting at <paramref name="streamStart"/>.</summary>
+    /// <param name="streamStart">The start of the stream, which is its substream zero.</param>
+    /// <param name="index">A substream index from zero to one below the substreams a stream holds.</param>
+    /// <remarks>
+    /// This is the one definition of where a substream begins. <see cref="SkipToSubstream"/> moves to
+    /// it and <see cref="LoadState"/> checks a snapshot against it, so the two cannot disagree.
+    /// </remarks>
+    private static StreamStateVector SubstreamStartAt(StreamStateVector streamStart, long index)
+    {
+        var vector = streamStart;
+        if (index > 0)
+        {
+            vector.Jump(
+                ModularMatrix.Power(A1P76, (ulong)index, M1),
+                ModularMatrix.Power(A2P76, (ulong)index, M2));
+        }
+
+        return vector;
     }
 
     /// <summary>Moves the current position by 2^<paramref name="exponent"/> applications of a one-step matrix pair.</summary>
