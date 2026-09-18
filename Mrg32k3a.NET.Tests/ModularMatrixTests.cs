@@ -9,7 +9,7 @@ public class ModularMatrixTests
 {
     public static TheoryData<string> JumpTableNames => new()
     {
-        "A1P76", "A2P76", "A1P127", "A2P127",
+        "A1P76", "A2P76", "A1P127", "A2P127", "InvA1P76", "InvA2P76",
     };
 
     [Theory]
@@ -21,7 +21,9 @@ public class ModularMatrixTests
             "A1P76" => (Mrg32k3aConstants.A1, Mrg32k3aConstants.A1P76, 76, Mrg32k3aConstants.M1),
             "A2P76" => (Mrg32k3aConstants.A2, Mrg32k3aConstants.A2P76, 76, Mrg32k3aConstants.M2),
             "A1P127" => (Mrg32k3aConstants.A1, Mrg32k3aConstants.A1P127, 127, Mrg32k3aConstants.M1),
-            _ => (Mrg32k3aConstants.A2, Mrg32k3aConstants.A2P127, 127, Mrg32k3aConstants.M2),
+            "A2P127" => (Mrg32k3aConstants.A2, Mrg32k3aConstants.A2P127, 127, Mrg32k3aConstants.M2),
+            "InvA1P76" => (Mrg32k3aConstants.InvA1, Mrg32k3aConstants.InvA1P76, 76, Mrg32k3aConstants.M1),
+            _ => (Mrg32k3aConstants.InvA2, Mrg32k3aConstants.InvA2P76, 76, Mrg32k3aConstants.M2),
         };
 
         var recomputed = ModularMatrix.PowerOfTwoPower(source, exponent, modulus);
@@ -66,6 +68,17 @@ public class ModularMatrixTests
 
         Assert.Equal(expectedInvA1, Mrg32k3aConstants.InvA1);
         Assert.Equal(expectedInvA2, Mrg32k3aConstants.InvA2);
+    }
+
+    [Fact]
+    public void InverseSubstreamJumpTablesUndoTheSubstreamJumpTables()
+    {
+        Assert.Equal(
+            ModularMatrix.Identity(),
+            ModularMatrix.Multiply(Mrg32k3aConstants.InvA1P76, Mrg32k3aConstants.A1P76, Mrg32k3aConstants.M1));
+        Assert.Equal(
+            ModularMatrix.Identity(),
+            ModularMatrix.Multiply(Mrg32k3aConstants.InvA2P76, Mrg32k3aConstants.A2P76, Mrg32k3aConstants.M2));
     }
 
     [Theory]

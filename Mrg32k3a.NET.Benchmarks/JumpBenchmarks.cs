@@ -20,6 +20,7 @@ public class JumpBenchmarks
     private RandomStream _byMixed = null!;
     private RandomStream _byStreamLength = null!;
     private RandomStream _substream = null!;
+    private RandomStream _bySubstreamBlock = null!;
 
     /// <summary>Builds one stream per jump case and moves each off its seed.</summary>
     [GlobalSetup]
@@ -30,6 +31,7 @@ public class JumpBenchmarks
         _byMixed = Warmed(factory);
         _byStreamLength = Warmed(factory);
         _substream = Warmed(factory);
+        _bySubstreamBlock = Warmed(factory);
     }
 
     /// <summary>A single forward step, taken through the general jump path.</summary>
@@ -86,6 +88,25 @@ public class JumpBenchmarks
         }
 
         return sum;
+    }
+
+    /// <summary>Landing on a substream a thousand places along, by index.</summary>
+    /// <remarks>
+    /// The comparison to draw is against <c>reset_next_substream</c>: that case pays one table jump
+    /// per substream, so reaching the same place by walking would cost a thousand of them, while
+    /// this is two modular matrix exponentiations whose cost grows with the logarithm of the index.
+    /// The absolute form is timed rather than the relative one because it is anchored at the stream
+    /// start, so the stream cannot drift across the many invocations the harness makes; the work
+    /// the two do is the same. This case has no RngStreams counterpart, so unlike the others its
+    /// name is not a join key against another implementation.
+    /// </remarks>
+    [Benchmark(Description = "skip_to_substream_1000", OperationsPerInvoke = Cases.ExpensiveJumps)]
+    public void SkipToSubstreamByIndex()
+    {
+        for (var i = 0; i < Cases.ExpensiveJumps; i++)
+        {
+            _bySubstreamBlock.SkipToSubstream(Cases.SubstreamSkip);
+        }
     }
 
     private static RandomStream Warmed(RandomStreamFactory factory)

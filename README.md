@@ -6,6 +6,7 @@ streams and substreams as described by L'Ecuyer, Simard, Chen and Kelton (2002).
 entirely in C# and has no dependencies.
 
 - Independent streams of 2^127 values, each split into 2^51 substreams of 2^76 values
+- Jump to any stream or substream by index in time logarithmic in the index, not linear
 - Bit-for-bit reproducible across netstandard2.0, net8.0 and net10.0, and across x64 and ARM64
 - Rewinds for common random numbers, antithetic variates, and 53-bit precision draws
 - Serializable stream snapshots and a `System.Random` adapter
@@ -35,6 +36,13 @@ for (var replication = 0; replication < 100; replication++)
     service.SkipToNextSubstream();
 }
 ```
+
+## Upgrading from 0.1.0
+
+Stream snapshots moved to version 2 to carry the substream index, which cannot be recovered from
+the state vectors. `LoadState` and `FromState` refuse a version 1 snapshot rather than loading it
+with an invented index, so any snapshot written by 0.1.0 has to be re-created from its seed and
+stream index. Nothing else changed: the values a stream produces are unmoved.
 
 ## Documentation
 

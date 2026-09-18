@@ -58,6 +58,51 @@ public class SerializationTests
         Assert.Equal(stream.StreamStartState.ToArray(), snapshot.StreamStart);
         Assert.Equal(stream.SubstreamStartState.ToArray(), snapshot.SubstreamStart);
         Assert.Equal(stream.CurrentState.ToArray(), snapshot.Current);
+        Assert.Equal(stream.SubstreamIndex, snapshot.SubstreamIndex);
+    }
+
+    [Fact]
+    public void TheSubstreamIndexSurvivesASaveAndLoadRoundTrip()
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+        stream.SkipToSubstream(1234);
+        stream.NextDouble();
+
+        var restored = RandomStream.FromState(
+            JsonSerializer.Deserialize<RandomStreamState>(JsonSerializer.Serialize(stream.SaveState()))!);
+
+        Assert.Equal(1234, restored.SubstreamIndex);
+
+        // The restored stream knows where it is, so it can still be moved relative to that position.
+        restored.SkipSubstreams(-1234);
+        Assert.Equal(0, restored.SubstreamIndex);
+        Assert.Equal(restored.StreamStartState, restored.SubstreamStartState);
+    }
+
+    [Fact]
+    public void AVersionOneSnapshotIsRefused()
+    {
+        // Version 1 predates the substream index, which cannot be recovered from the state vectors,
+        // so such a snapshot is refused rather than loaded with an invented index.
+        var snapshot = new RandomStreamFactory().CreateStream().SaveState();
+        snapshot.Version = 1;
+
+        var error = Assert.Throws<ArgumentException>(() => RandomStream.FromState(snapshot));
+        Assert.Contains("1", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(-1L)]
+    [InlineData(long.MinValue)]
+    [InlineData(1L << 51)]
+    [InlineData(long.MaxValue)]
+    public void AnOutOfRangeSubstreamIndexIsRefused(long index)
+    {
+        var snapshot = new RandomStreamFactory().CreateStream().SaveState();
+        snapshot.SubstreamIndex = index;
+
+        var error = Assert.Throws<ArgumentException>(() => RandomStream.FromState(snapshot));
+        Assert.Contains("SubstreamIndex", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -27,6 +27,13 @@ internal static class Cases
     /// <summary>Number of streams the interleaved case strides through.</summary>
     internal const int MultistreamCount = 64;
 
+    /// <summary>How many substreams the indexed substream jump moves over.</summary>
+    /// <remarks>
+    /// The point of the case is that this number barely affects the time, so it only has to be
+    /// large enough that walking there one substream at a time would plainly cost more.
+    /// </remarks>
+    internal const int SubstreamSkip = 1_000;
+
     /// <summary>Section headings, in the order the report prints them.</summary>
     internal const string Throughput = "Throughput";
 
