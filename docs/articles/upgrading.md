@@ -38,11 +38,18 @@ it was saved at.
 The index has to be the substream that `SubstreamStart` actually begins. Version 2 checks the two
 against each other and refuses the snapshot if they disagree.
 
-### If the substream index was not recorded
+### Where the index comes from
 
-It cannot be recovered from the snapshot. The seed and stream index reach only the start of a
-stream, not a position inside it. Take a version 2 snapshot before upgrading, or resume from the
-start of the stream.
+Nothing in a version 1 document carries it, and 0.1.0 has no `SubstreamIndex` property to read it
+from. `SkipToNextSubstream` is that release's only way to move the marker, so the number is the
+run's own count of those calls since the stream was created. Record that count alongside each
+snapshot while still on 0.1.0, because 0.1.0 writes version 1 documents and cannot produce a
+version 2 one.
+
+Without the count the position is lost: the seed and stream index reach only the start of a stream,
+not a position inside it. The stream can still be restarted at the beginning of its own block, by
+setting `SubstreamIndex` to 0 and copying `StreamStart` into both `SubstreamStart` and `Current`.
+The name and the two flags carry over, and the values run from the top of the stream again.
 
 ### While you are there
 

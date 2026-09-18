@@ -7,7 +7,7 @@ All notable changes to Mrg32k3a.NET are recorded here. The format follows
 Migration steps for the breaking changes are in the
 [upgrade guide](https://simverk.github.io/Mrg32k3a.NET/articles/upgrading.html).
 
-## 0.2.0 - 2026-09-19
+## 0.2.0 - 2026-09-18
 
 ### Added
 
