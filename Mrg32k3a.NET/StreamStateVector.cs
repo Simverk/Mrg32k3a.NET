@@ -48,6 +48,30 @@ internal struct StreamStateVector : IEquatable<StreamStateVector>
         return new[] { (uint)S10, (uint)S11, (uint)S12, (uint)S20, (uint)S21, (uint)S22 };
     }
 
+    /// <summary>Validates a candidate seed and builds the vector from it, reading it only once.</summary>
+    /// <param name="values">The candidate six values, which the caller may still hold and mutate.</param>
+    /// <param name="vector">Receives the vector when the values are valid, otherwise the default.</param>
+    /// <param name="error">Receives a description of the first rule broken, or null.</param>
+    /// <returns><see langword="true"/> when the values form a usable state.</returns>
+    /// <remarks>
+    /// The copy is the point. Validating the caller's array and then reading it again to build the
+    /// vector reads it twice, so a caller mutating it in between can have one set of values accepted
+    /// and a different set stored, including one that breaks the seed rules. Everything after the
+    /// copy reads only the copy, so what is stored is always what was validated.
+    /// </remarks>
+    internal static bool TryFromArray(uint[]? values, out StreamStateVector vector, out string? error)
+    {
+        var copy = values is null ? null : (uint[])values.Clone();
+        if (!Validate(copy!, out error))
+        {
+            vector = default;
+            return false;
+        }
+
+        vector = FromArray(copy!);
+        return true;
+    }
+
     /// <summary>
     /// Validates a candidate seed against the seed rules of SetPackageSeed in L'Ecuyer et al. (2002).
     /// </summary>

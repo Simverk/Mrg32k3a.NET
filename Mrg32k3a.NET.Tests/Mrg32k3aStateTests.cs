@@ -107,4 +107,54 @@ public class Mrg32k3aStateTests
 
         Assert.Equal(new uint[] { 1, 2, 3, 4, 5, 6 }, state.ToArray());
     }
+    [Fact]
+    public void MutatingTheSourceArrayAfterwardsDoesNotChangeTheState()
+    {
+        var values = new uint[] { 1, 2, 3, 4, 5, 6 };
+
+        var state = new Mrg32k3aState(values);
+        values[0] = 999;
+
+        Assert.Equal(new uint[] { 1, 2, 3, 4, 5, 6 }, state.ToArray());
+    }
+
+    [Fact]
+    public async Task AStateIsNeverBuiltFromValuesThatWereNotTheOnesValidated()
+    {
+        // The array is validated and then read again to build the state. If those are two reads of
+        // the caller's array, a caller mutating it in between can have one seed accepted and a
+        // different, rule-breaking one stored. Nothing accepted here may break the seed rules.
+        var shared = new uint[] { 12345, 12345, 12345, 12345, 12345, 12345 };
+        var invalid = new uint[] { 0, 0, 0, 12345, 12345, 12345 };
+        var valid = (uint[])shared.Clone();
+
+        using var done = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var flipper = Task.Run(
+            () =>
+            {
+                while (!done.Token.IsCancellationRequested)
+                {
+                    for (var i = 0; i < 6; i++) { Volatile.Write(ref shared[i], invalid[i]); }
+                    for (var i = 0; i < 6; i++) { Volatile.Write(ref shared[i], valid[i]); }
+                }
+            },
+            CancellationToken.None);
+
+        var accepted = 0;
+        while (!done.Token.IsCancellationRequested)
+        {
+            if (Mrg32k3aState.TryCreate(shared, out var state, out _))
+            {
+                accepted++;
+                var v = state.ToArray();
+                Assert.True(
+                    (v[0] | v[1] | v[2]) != 0 && (v[3] | v[4] | v[5]) != 0,
+                    "TryCreate accepted a state that breaks the seed rules: " + string.Join(",", v));
+            }
+        }
+
+        await flipper;
+        Assert.True(accepted > 0, "the race window was never exercised");
+    }
+
 }
