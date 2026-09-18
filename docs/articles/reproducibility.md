@@ -46,7 +46,8 @@ RandomStream restored = RandomStream.FromState(
 The snapshot has a `Version` field. `LoadState` and `FromState` throw `ArgumentException` for any
 version other than the current one, or for a state that breaks the seed rules.
 
-The current version is 2.
+The current version is 2. Migrating a snapshot saved by an older release is covered in the
+[upgrade guide](upgrading.md).
 
 ## Saving and restoring a factory
 
