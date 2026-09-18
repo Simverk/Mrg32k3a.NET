@@ -9,7 +9,8 @@ entirely in C# and has no dependencies.
 - Jump to any stream or substream by index in time logarithmic in the index, not linear
 - Bit-for-bit reproducible across netstandard2.0, net8.0 and net10.0, and across x64 and ARM64
 - Rewinds for common random numbers, antithetic variates, and 53-bit precision draws
-- Serializable stream snapshots and a `System.Random` adapter
+- Serializable stream and factory snapshots, so a run resumes without reissuing live streams
+- A `System.Random` adapter
 
 ## Install
 

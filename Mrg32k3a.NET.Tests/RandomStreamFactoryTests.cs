@@ -140,6 +140,23 @@ public class RandomStreamFactoryTests
     }
 
     [Fact]
+    public void TwoFactoriesRestoredFromOneSnapshotAdvanceIndependently()
+    {
+        var original = new RandomStreamFactory();
+        original.CreateStreams(3);
+        var snapshot = original.SaveState();
+
+        var first = RandomStreamFactory.FromState(snapshot);
+        var second = RandomStreamFactory.FromState(snapshot);
+
+        first.CreateStreams(2);
+
+        Assert.Equal(5L, first.CreatedStreamCount);
+        Assert.Equal(3L, second.CreatedStreamCount);
+        Assert.Equal(original.CreateStreamAt(3).StreamStartState, second.CreateStream().StreamStartState);
+    }
+
+    [Fact]
     public void ConcurrentCreationHandsOutDistinctStreams()
     {
         var factory = new RandomStreamFactory();

@@ -48,6 +48,43 @@ version other than the current one, or for a state that breaks the seed rules.
 
 The current version is 2.
 
+## Saving and restoring a factory
+
+A stream snapshot records where a stream is. It does not record which streams have been handed out,
+and that lives on the factory. Save both, or a reloaded run starts its factory at the first stream
+again and hands out streams that are already in use, so two workers draw the same values with
+nothing to report it.
+
+<xref:Mrg32k3a.NET.RandomStreamFactory.SaveState*> takes a
+<xref:Mrg32k3a.NET.RandomStreamFactoryState>, holding the seed and the number of streams handed out
+so far:
+
+```csharp
+var checkpoint = new
+{
+    Factory = factory.SaveState(),
+    Arrivals = arrivals.SaveState(),
+    Service = service.SaveState(),
+};
+```
+
+<xref:Mrg32k3a.NET.RandomStreamFactory.FromState*> builds a factory whose next stream is the one the
+saved factory would have handed out next:
+
+```csharp
+RandomStreamFactory factory = RandomStreamFactory.FromState(checkpoint.Factory);
+RandomStream arrivals = RandomStream.FromState(checkpoint.Arrivals);
+RandomStream service = RandomStream.FromState(checkpoint.Service);
+
+// Carries on from stream 3, not from stream 0.
+RandomStream routing = factory.CreateStream("routing");
+```
+
+There is no counterpart that loads into an existing factory. A factory is shared between threads, so
+replacing its seed underneath them would let one worker take a stream from the old ordering and
+another from the new one, which is the duplication the snapshot exists to prevent. Build a new
+factory and replace your reference to the old one.
+
 ## Cloning
 
 <xref:Mrg32k3a.NET.RandomStream.Clone*> makes an independent copy at the current position. The copy
