@@ -113,6 +113,10 @@ RandomStream mine = factory.CreateStreamAt(rank);
 `CreateStreamAt` returns the same stream that `CreateStream` would return at that position. It does
 not change the factory's creation order, and its cost grows with the logarithm of the index.
 
+That suits work split by rank, where each process knows which slice is its own. A run that is
+stopped and resumed instead wants the factory's creation order preserved, which is what
+[saving and restoring a factory](reproducibility.md#saving-and-restoring-a-factory) does.
+
 ## Jumping within a stream
 
 <xref:Mrg32k3a.NET.RandomStream.Advance*>, <xref:Mrg32k3a.NET.RandomStream.AdvanceByPowerOfTwo*> and
