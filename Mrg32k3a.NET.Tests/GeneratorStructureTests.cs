@@ -58,6 +58,7 @@ public class GeneratorStructureTests
         Assert.Equal(
             Mrg32k3aConstants.StreamExponent,
             Mrg32k3aConstants.SubstreamExponent + substreamsPerStream);
+        Assert.Equal(1L << substreamsPerStream, Mrg32k3aConstants.SubstreamsPerStream);
         Assert.Equal(
             Mrg32k3aConstants.A1P127,
             ModularMatrix.PowerOfTwoPower(Mrg32k3aConstants.A1P76, substreamsPerStream, Mrg32k3aConstants.M1));

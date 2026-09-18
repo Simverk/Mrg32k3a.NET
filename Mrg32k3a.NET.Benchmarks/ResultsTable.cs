@@ -35,6 +35,7 @@ internal static class ResultsTable
         "advance_5_3",
         "advance_127_0",
         "reset_next_substream",
+        "skip_to_substream_1000",
         "create_stream",
         "system_random",
         "system_random_shared",

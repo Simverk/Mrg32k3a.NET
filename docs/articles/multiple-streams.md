@@ -2,10 +2,10 @@
 
 MRG32k3a has a period of about 2^191. This library divides that sequence in two levels:
 
-| Level     | Size    | How to get the next one                                      |
-|-----------|---------|--------------------------------------------------------------|
-| Stream    | 2^127   | `RandomStreamFactory.CreateStream`                           |
-| Substream | 2^76    | `RandomStream.SkipToNextSubstream`                           |
+| Level     | Size    | How to get the next one            | How to get the one at index _k_        |
+|-----------|---------|------------------------------------|----------------------------------------|
+| Stream    | 2^127   | `RandomStreamFactory.CreateStream` | `RandomStreamFactory.CreateStreamAt`   |
+| Substream | 2^76    | `RandomStream.SkipToNextSubstream` | `RandomStream.SkipToSubstream`         |
 
 Streams from the same factory never overlap in any realistic run.
 
@@ -35,6 +35,36 @@ for (var replication = 0; replication < 100; replication++)
     service.SkipToNextSubstream();
 }
 ```
+
+## Substreams by index
+
+A stream holds 2^51 substreams, numbered from zero.
+<xref:Mrg32k3a.NET.RandomStream.SkipToSubstream*> goes straight to one of them, counting from the
+start of the stream rather than from wherever the stream happens to be:
+
+```csharp
+// Resume a batch at replication 500 without replaying the first 500.
+arrivals.SkipToSubstream(500);
+service.SkipToSubstream(500);
+```
+
+<xref:Mrg32k3a.NET.RandomStream.SkipSubstreams*> is the relative form, and takes negative counts to
+move back towards the start of the stream:
+
+```csharp
+arrivals.SkipSubstreams(10);   // ten replications on
+arrivals.SkipSubstreams(-3);   // three back, to re-run them
+```
+
+Both cost about the same as a single `SkipToNextSubstream` however far they move. Walking a thousand substreams with `SkipToNextSubstream` costs
+a thousand jumps; `SkipToSubstream(1000)` costs one.
+
+<xref:Mrg32k3a.NET.RandomStream.SubstreamIndex> reports where a stream currently is, and is carried
+by `Clone` and by the state snapshot.
+
+A stream never leaves its own block. An index at or beyond 2^51, or a count that would move before
+substream zero, throws `ArgumentOutOfRangeException` rather than walking into the next stream's
+values; `SkipToNextSubstream` likewise throws `InvalidOperationException` on the last substream.
 
 ## Common random numbers
 
@@ -89,3 +119,8 @@ not change the factory's creation order, and its cost grows with the logarithm o
 <xref:Mrg32k3a.NET.RandomStream.RetreatByPowerOfTwo*> move the current position by any number of
 steps, forwards or backwards. They are escape hatches for special cases. Most code only needs
 substreams and more streams from the factory.
+
+Unlike the substream operations, these three do not refuse to leave the stream's own block. A
+position inside a substream can be up to 2^76 steps from its start, which no `long` can express, so
+there is no offset for them to check a move against. Enough steps will walk into a neighbouring
+stream.

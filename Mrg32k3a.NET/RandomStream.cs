@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using static Mrg32k3a.NET.Mrg32k3aConstants;
@@ -31,6 +32,7 @@ public sealed class RandomStream
     private StreamStateVector _streamStart;
     private StreamStateVector _substreamStart;
     private StreamStateVector _current;
+    private long _substreamIndex;
     private string _name;
     private bool _antithetic;
     private bool _highPrecision;
@@ -40,6 +42,7 @@ public sealed class RandomStream
         _streamStart = seed;
         _substreamStart = seed;
         _current = seed;
+        _substreamIndex = 0;
         _name = name ?? string.Empty;
     }
 
@@ -120,11 +123,22 @@ public sealed class RandomStream
     /// <summary>Gets the state at the start of the substream this stream is currently inside.</summary>
     public Mrg32k3aState SubstreamStartState => new Mrg32k3aState(_substreamStart);
 
+    /// <summary>Gets the zero-based index of the substream this stream is currently inside.</summary>
+    /// <remarks>
+    /// A stream holds 2^51 substreams, so the index runs from zero to 2^51 - 1. It is part of the
+    /// stream's state: it is carried by <see cref="Clone"/> and by <see cref="SaveState"/>, and it
+    /// is what lets <see cref="SkipSubstreams"/> tell whether a move would leave this stream's
+    /// block. Only the substream operations change it; drawing values and
+    /// <see cref="Advance"/> do not.
+    /// </remarks>
+    public long SubstreamIndex => _substreamIndex;
+
     /// <summary>Returns this stream to its initial state, at the start of its first substream.</summary>
     public void RewindStream()
     {
         _substreamStart = _streamStart;
         _current = _streamStart;
+        _substreamIndex = 0;
     }
 
     /// <summary>Returns this stream to the start of the substream it is currently inside.</summary>
@@ -134,10 +148,123 @@ public sealed class RandomStream
     }
 
     /// <summary>Moves this stream to the start of its next substream, 2^76 values further on.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// This stream is already on the last of its substreams, so a further one would lie outside its
+    /// own block.
+    /// </exception>
+    /// <remarks>
+    /// The exception is a guard on the partitioning rather than a case to program around: reaching
+    /// it takes 2^51 calls. Use <see cref="SkipSubstreams"/> to move by more than one substream at
+    /// a time.
+    /// </remarks>
     public void SkipToNextSubstream()
     {
+        if (_substreamIndex >= SubstreamsPerStream - 1)
+        {
+            throw new InvalidOperationException(
+                "This stream is already on the last of its 2^51 substreams, so it cannot move to a "
+                + "next one without leaving its own block.");
+        }
+
         _substreamStart.Jump(A1P76, A2P76);
         _current = _substreamStart;
+        _substreamIndex++;
+    }
+
+    /// <summary>
+    /// Moves this stream by a signed number of substreams, to the start of the substream it lands on.
+    /// </summary>
+    /// <param name="count">Substreams to move; negative values move back towards the stream start.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The move would leave this stream's own block, that is it would land before substream zero or
+    /// at or beyond substream 2^51.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// The cost grows with the logarithm of <paramref name="count"/> rather than with
+    /// <paramref name="count"/> itself, because the move is one modular matrix exponentiation per
+    /// component and not a run of substream jumps. Skipping a million substreams costs about as
+    /// much as skipping twenty.
+    /// </para>
+    /// <para>
+    /// A count of zero does nothing at all, and in particular does not return to the start of the
+    /// current substream; <see cref="RewindSubstream"/> does that.
+    /// </para>
+    /// </remarks>
+    public void SkipSubstreams(long count)
+    {
+        // Compared against the remaining headroom rather than by adding, so the check itself
+        // cannot overflow for counts near the ends of the range.
+        var lowest = -_substreamIndex;
+        var highest = SubstreamsPerStream - 1 - _substreamIndex;
+        if (count < lowest || count > highest)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(count),
+                count,
+                FormattableString.Invariant(
+                    $"The count must be between {lowest} and {highest} inclusive at substream {_substreamIndex}."));
+        }
+
+        if (count == 0)
+        {
+            return;
+        }
+
+        if (count == 1)
+        {
+            SkipToNextSubstream();
+            return;
+        }
+
+        ulong magnitude;
+        ulong[] jump1;
+        ulong[] jump2;
+        if (count > 0)
+        {
+            magnitude = (ulong)count;
+            jump1 = A1P76;
+            jump2 = A2P76;
+        }
+        else
+        {
+            magnitude = (ulong)(-count);
+            jump1 = InvA1P76;
+            jump2 = InvA2P76;
+        }
+
+        _substreamStart.Jump(
+            ModularMatrix.Power(jump1, magnitude, M1),
+            ModularMatrix.Power(jump2, magnitude, M2));
+        _current = _substreamStart;
+        _substreamIndex += count;
+    }
+
+    /// <summary>Moves this stream to the start of the substream at the given index of this stream.</summary>
+    /// <param name="index">A zero-based substream index below 2^51.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="index"/> is negative, or at or beyond the 2^51 substreams this stream holds.
+    /// </exception>
+    /// <remarks>
+    /// The index is counted from the start of this stream, not from where it happens to be, so the
+    /// call lands in the same place however the stream was used beforehand. It is the operation to
+    /// use to resume a run at a known replication, or to give worker <c>i</c> substream <c>i</c>
+    /// without walking there. Its cost grows with the logarithm of <paramref name="index"/>.
+    /// </remarks>
+    public void SkipToSubstream(long index)
+    {
+        if (index < 0 || index >= SubstreamsPerStream)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(index),
+                index,
+                FormattableString.Invariant(
+                    $"The index must be between 0 and {SubstreamsPerStream - 1} inclusive, the substreams a stream holds."));
+        }
+
+        _substreamStart = SubstreamStartAt(_streamStart, index);
+        _current = _substreamStart;
+        _substreamIndex = index;
     }
 
     /// <summary>
@@ -146,9 +273,17 @@ public sealed class RandomStream
     /// </summary>
     /// <param name="steps">Steps to move; negative values move backwards.</param>
     /// <remarks>
+    /// <para>
     /// To move 2^e + c steps, call <see cref="AdvanceByPowerOfTwo"/> (or <see cref="RetreatByPowerOfTwo"/>)
     /// with exponent <c>e</c> and then <see cref="Advance"/> with <c>c</c>. Both are escape hatches. Ordinary use is served by the
     /// reset methods and by taking more streams from the factory.
+    /// </para>
+    /// <para>
+    /// Unlike the substream operations, this one does not refuse to leave the stream's own block.
+    /// A position inside a substream can be 2^76 steps from its start, which no <see cref="long"/>
+    /// can express, so there is no offset to check a move against. Enough steps here will walk into
+    /// a neighbouring stream, which is the price of the escape hatch.
+    /// </para>
     /// </remarks>
     public void Advance(long steps)
     {
@@ -444,6 +579,7 @@ public sealed class RandomStream
             StreamStart = _streamStart.ToArray(),
             SubstreamStart = _substreamStart.ToArray(),
             Current = _current.ToArray(),
+            SubstreamIndex = _substreamIndex,
             Antithetic = _antithetic,
             HighPrecision = _highPrecision,
         };
@@ -453,6 +589,13 @@ public sealed class RandomStream
     /// <param name="state">The snapshot to restore.</param>
     /// <exception cref="ArgumentNullException"><paramref name="state"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">The snapshot is of an unknown version or holds an invalid state.</exception>
+    /// <remarks>
+    /// The anchors of a snapshot have to agree: <c>SubstreamStart</c> must be the start of substream
+    /// <c>SubstreamIndex</c> of <c>StreamStart</c>, the relation every stream this library produces
+    /// satisfies. Checking it costs one modular matrix exponentiation and is what keeps a restored
+    /// stream inside its own block, since the substream operations trust the index to say where the
+    /// stream is.
+    /// </remarks>
     public void LoadState(RandomStreamState state)
     {
         if (state is null)
@@ -471,10 +614,26 @@ public sealed class RandomStream
         var streamStart = RequireValid(state.StreamStart, nameof(state), "StreamStart");
         var substreamStart = RequireValid(state.SubstreamStart, nameof(state), "SubstreamStart");
         var current = RequireValid(state.Current, nameof(state), "Current");
+        if (state.SubstreamIndex < 0 || state.SubstreamIndex >= SubstreamsPerStream)
+        {
+            throw new ArgumentException(
+                FormattableString.Invariant(
+                    $"The SubstreamIndex of the state is invalid. It must be below {SubstreamsPerStream}."),
+                nameof(state));
+        }
+
+        if (!SubstreamStartAt(streamStart, state.SubstreamIndex).Equals(substreamStart))
+        {
+            throw new ArgumentException(
+                FormattableString.Invariant(
+                    $"The SubstreamStart of the state is invalid. It must be the start of substream {state.SubstreamIndex} of StreamStart."),
+                nameof(state));
+        }
 
         _streamStart = streamStart;
         _substreamStart = substreamStart;
         _current = current;
+        _substreamIndex = state.SubstreamIndex;
         _name = state.Name ?? string.Empty;
         _antithetic = state.Antithetic;
         _highPrecision = state.HighPrecision;
@@ -487,6 +646,7 @@ public sealed class RandomStream
         var copy = new RandomStream(_streamStart, _name);
         copy._substreamStart = _substreamStart;
         copy._current = _current;
+        copy._substreamIndex = _substreamIndex;
         copy._antithetic = _antithetic;
         copy._highPrecision = _highPrecision;
         return copy;
@@ -518,7 +678,7 @@ public sealed class RandomStream
         return builder.ToString();
     }
 
-    /// <summary>Returns the name of this stream, all three of its state vectors, and its flags.</summary>
+    /// <summary>Returns the name of this stream, its three state vectors, its substream index, and its flags.</summary>
     /// <returns>Several lines of text.</returns>
     public string ToDetailedString()
     {
@@ -532,6 +692,9 @@ public sealed class RandomStream
         builder.Append(Environment.NewLine);
         builder.Append("   antithetic = ").Append(_antithetic ? "true" : "false").Append(Environment.NewLine);
         builder.Append("   highPrecision = ").Append(_highPrecision ? "true" : "false").Append(Environment.NewLine);
+        builder.Append("   substreamIndex = ")
+            .Append(_substreamIndex.ToString(CultureInfo.InvariantCulture))
+            .Append(Environment.NewLine);
         AppendState(builder, "   StreamStart = ", _streamStart);
         builder.Append(Environment.NewLine);
         AppendState(builder, "   SubstreamStart = ", _substreamStart);
@@ -604,6 +767,26 @@ public sealed class RandomStream
         }
 
         return u <= 0.0 ? HighPrecisionFloor : u;
+    }
+
+    /// <summary>Returns the start of substream <paramref name="index"/> of the stream starting at <paramref name="streamStart"/>.</summary>
+    /// <param name="streamStart">The start of the stream, which is its substream zero.</param>
+    /// <param name="index">A substream index from zero to one below the substreams a stream holds.</param>
+    /// <remarks>
+    /// This is the one definition of where a substream begins. <see cref="SkipToSubstream"/> moves to
+    /// it and <see cref="LoadState"/> checks a snapshot against it, so the two cannot disagree.
+    /// </remarks>
+    private static StreamStateVector SubstreamStartAt(StreamStateVector streamStart, long index)
+    {
+        var vector = streamStart;
+        if (index > 0)
+        {
+            vector.Jump(
+                ModularMatrix.Power(A1P76, (ulong)index, M1),
+                ModularMatrix.Power(A2P76, (ulong)index, M2));
+        }
+
+        return vector;
     }
 
     /// <summary>Moves the current position by 2^<paramref name="exponent"/> applications of a one-step matrix pair.</summary>

@@ -93,6 +93,168 @@ public class StreamContractTests
         Assert.Equal(byReset.CurrentState, byJump.CurrentState);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(5)]
+    [InlineData(17)]
+    public void SkipSubstreamsAgreesWithRepeatedSkipToNextSubstream(int count)
+    {
+        var factory = new RandomStreamFactory();
+        var stepped = factory.CreateStreamAt(0);
+        var jumped = factory.CreateStreamAt(0);
+
+        for (var i = 0; i < count; i++)
+        {
+            stepped.SkipToNextSubstream();
+        }
+
+        jumped.SkipSubstreams(count);
+
+        Assert.Equal(stepped.SubstreamStartState, jumped.SubstreamStartState);
+        Assert.Equal(stepped.CurrentState, jumped.CurrentState);
+        Assert.Equal(count, jumped.SubstreamIndex);
+        Assert.Equal(stepped.NextDouble(), jumped.NextDouble());
+    }
+
+    [Fact]
+    public void SkipSubstreamsByOneMatchesTheHardCodedSecondSubstream()
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+
+        stream.SkipSubstreams(1);
+
+        Assert.Equal(SecondSubstreamOfFirstStream, stream.CurrentState.ToArray());
+        Assert.Equal(SecondSubstreamOfFirstStream, stream.SubstreamStartState.ToArray());
+        Assert.Equal(1, stream.SubstreamIndex);
+        Assert.Equal(0.07939898979733463, stream.NextDouble());
+    }
+
+    [Fact]
+    public void SkipSubstreamsOfZeroLeavesTheStreamWhereItIs()
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+        stream.SkipToNextSubstream();
+        stream.NextDouble();
+        var position = stream.CurrentState;
+
+        stream.SkipSubstreams(0);
+
+        // A count of zero is not a rewind: a partly consumed substream stays consumed.
+        Assert.Equal(position, stream.CurrentState);
+        Assert.NotEqual(stream.SubstreamStartState, stream.CurrentState);
+        Assert.Equal(1, stream.SubstreamIndex);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(40)]
+    public void NegativeSkipSubstreamsUndoesThePositiveOne(int count)
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+        var start = stream.CurrentState;
+
+        stream.SkipSubstreams(count);
+        Assert.NotEqual(start, stream.CurrentState);
+
+        stream.SkipSubstreams(-count);
+
+        Assert.Equal(start, stream.CurrentState);
+        Assert.Equal(start, stream.SubstreamStartState);
+        Assert.Equal(0, stream.SubstreamIndex);
+    }
+
+    [Fact]
+    public void SkipSubstreamsLeavesTheStreamStartAlone()
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+        var streamStart = stream.StreamStartState;
+
+        stream.SkipSubstreams(9);
+
+        Assert.Equal(streamStart, stream.StreamStartState);
+    }
+
+    [Fact]
+    public void SkipSubstreamsAgreesWithAPowerOfTwoJump()
+    {
+        var factory = new RandomStreamFactory();
+        var stepped = factory.CreateStreamAt(0);
+        var jumped = factory.CreateStreamAt(0);
+
+        // Two substreams are exactly 2^77 values, which a power-of-two jump reproduces.
+        jumped.SkipSubstreams(2);
+        stepped.AdvanceByPowerOfTwo(77);
+
+        Assert.Equal(stepped.CurrentState, jumped.CurrentState);
+    }
+
+    [Fact]
+    public void SkipToSubstreamIsAbsoluteFromTheStreamStart()
+    {
+        var factory = new RandomStreamFactory();
+        var stepped = factory.CreateStreamAt(0);
+        var jumped = factory.CreateStreamAt(0);
+
+        for (var i = 0; i < 4; i++)
+        {
+            stepped.SkipToNextSubstream();
+        }
+
+        // Displace the second stream first, to prove the destination does not depend on where it was.
+        jumped.SkipSubstreams(9);
+        jumped.NextDouble();
+        jumped.SkipToSubstream(4);
+
+        Assert.Equal(stepped.SubstreamStartState, jumped.SubstreamStartState);
+        Assert.Equal(stepped.CurrentState, jumped.CurrentState);
+        Assert.Equal(4, jumped.SubstreamIndex);
+    }
+
+    [Fact]
+    public void SkipToSubstreamOfZeroReturnsToTheStreamStart()
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+        var expected = Draw(stream, 10);
+        stream.SkipSubstreams(6);
+        stream.NextDouble();
+
+        stream.SkipToSubstream(0);
+
+        Assert.Equal(expected, Draw(stream, 10));
+        Assert.Equal(stream.StreamStartState, stream.SubstreamStartState);
+        Assert.Equal(0, stream.SubstreamIndex);
+    }
+
+    [Fact]
+    public void SubstreamIndexTracksEveryWayOfMoving()
+    {
+        var stream = new RandomStreamFactory().CreateStream();
+        Assert.Equal(0, stream.SubstreamIndex);
+
+        stream.SkipToNextSubstream();
+        Assert.Equal(1, stream.SubstreamIndex);
+
+        stream.SkipSubstreams(41);
+        Assert.Equal(42, stream.SubstreamIndex);
+
+        stream.SkipSubstreams(-2);
+        Assert.Equal(40, stream.SubstreamIndex);
+
+        stream.SkipToSubstream(7);
+        Assert.Equal(7, stream.SubstreamIndex);
+
+        // Neither drawing nor the within-substream escape hatches move between substreams.
+        stream.NextDouble();
+        stream.Advance(1000);
+        stream.RewindSubstream();
+        Assert.Equal(7, stream.SubstreamIndex);
+
+        stream.RewindStream();
+        Assert.Equal(0, stream.SubstreamIndex);
+    }
+
     [Fact]
     public void RewindStreamReplaysTheWholeStream()
     {
@@ -206,6 +368,7 @@ public class StreamContractTests
     public void CloneContinuesTheSameSequenceIndependently()
     {
         var stream = new RandomStreamFactory().CreateStream();
+        stream.SkipSubstreams(3);
         stream.NextDouble();
         stream.Antithetic = true;
 
@@ -215,6 +378,7 @@ public class StreamContractTests
 
         Assert.Equal(fromOriginal, fromClone);
         Assert.True(clone.Antithetic);
+        Assert.Equal(stream.SubstreamIndex, clone.SubstreamIndex);
 
         stream.NextDouble();
         Assert.NotEqual(stream.CurrentState, clone.CurrentState);

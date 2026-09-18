@@ -11,6 +11,8 @@ namespace Mrg32k3a.NET;
 /// Substreams". The jump matrices are the
 /// transition matrices of the two components raised to the powers 2^76 and 2^127 modulo the
 /// corresponding modulus and reproduced here so that streams do not have to recalculate them.
+/// The backward tables are the corresponding inverses, which let a stream move towards its start
+/// as cheaply as it moves away from it.
 /// <c>ModularMatrixTests</c> guards against drift by verifying they match values recalculated
 /// from <see cref="A1"/> and <see cref="A2"/>.
 /// </remarks>
@@ -61,6 +63,13 @@ internal static class Mrg32k3aConstants
 
     /// <summary>Base-two logarithm of the stream length.</summary>
     internal const int StreamExponent = 127;
+
+    /// <summary>Number of substreams inside one stream, 2^51.</summary>
+    /// <remarks>
+    /// Derived from the two exponents rather than written out, so it cannot drift away from the
+    /// partitioning they describe.
+    /// </remarks>
+    internal const long SubstreamsPerStream = 1L << (StreamExponent - SubstreamExponent);
 
     /// <summary>One-step transition matrix of the first component, row major.</summary>
     internal static readonly ulong[] A1 =
@@ -124,5 +133,21 @@ internal static class Mrg32k3aConstants
         0, 360363334, 4225571728,
         1, 0, 0,
         0, 1, 0,
+    };
+
+    /// <summary>Inverse of <see cref="A1P76"/> modulo <see cref="M1"/>, the backward substream jump.</summary>
+    internal static readonly ulong[] InvA1P76 =
+    {
+        2585822061, 2346541846, 600781890,
+        42385315, 4257896290, 2346541846,
+        1248824805, 2390631828, 4257896290,
+    };
+
+    /// <summary>Inverse of <see cref="A2P76"/> modulo <see cref="M2"/>, the backward substream jump.</summary>
+    internal static readonly ulong[] InvA2P76 =
+    {
+        855407695, 4134906251, 112088500,
+        2897599610, 855407695, 1987588141,
+        854109890, 2897599610, 1099731892,
     };
 }
