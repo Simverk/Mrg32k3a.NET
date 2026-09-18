@@ -15,7 +15,8 @@ Migration steps for the breaking changes are in the
   time logarithmic in the distance, the first relative and signed so that it also moves back
   towards the stream start, the second absolute and counted from the stream start. Each is one
   modular matrix exponentiation per component rather than a run of table jumps, so a
-  thousand-substream move costs about as much as a twenty-substream one.
+  thousand-substream move costs about as much as a twenty-substream one. A move that would leave
+  the stream's own block of 2^51 substreams throws `ArgumentOutOfRangeException`.
 - `RandomStream.SubstreamIndex` reports the substream the stream is inside. A relative jump needs
   that number to tell whether the move would leave the stream's own block of 2^51 substreams, and
   it cannot be recovered from the state vectors.
@@ -29,14 +30,14 @@ Migration steps for the breaking changes are in the
 
 ### Fixed
 
-- `LoadState` and `FromState` reject a snapshot whose `SubstreamStart` is not the start of
-  substream `SubstreamIndex` of `StreamStart`. Each vector was previously checked against the seed
-  rules alone and never against the others, so a snapshot naming substream zero while its
-  `SubstreamStart` sat in another stream's block was accepted, and the substream guards that take
-  the index as the stream's position would then authorise a jump out of the block they exist to
-  protect.
-- `SkipToNextSubstream` throws on the last substream of a stream rather than crossing into the next
-  stream's block.
+- `LoadState` and `FromState` throw `ArgumentException` for a snapshot whose `SubstreamStart` is
+  not the start of substream `SubstreamIndex` of `StreamStart`. Each vector was previously checked
+  against the seed rules alone and never against the others, so a snapshot naming substream zero
+  while its `SubstreamStart` sat in another stream's block was accepted, and the substream guards
+  that take the index as the stream's position would then authorise a jump out of the block they
+  exist to protect.
+- `SkipToNextSubstream` throws `InvalidOperationException` on the last substream of a stream rather
+  than crossing into the next stream's block.
 - The three entry points that take a `uint[]` seed, the `Mrg32k3aState` array constructor,
   `Mrg32k3aState.TryCreate` and `RandomStream.LoadState`, copy the array once and then validate and
   build from the copy alone. Each previously read the caller's array twice, so an array mutated
@@ -46,8 +47,8 @@ Migration steps for the breaking changes are in the
 ### Changed
 
 - **Breaking.** `RandomStreamState` moves to version 2 to carry `SubstreamIndex`. A version 1
-  snapshot is refused rather than loaded with a substituted index, because no such index can be
-  derived from its vectors. The values a stream produces are unmoved. See
+  snapshot is rejected with `ArgumentException` rather than loaded with a substituted index, because
+  no such index can be derived from its vectors. The values a stream produces are unmoved. See
   [Upgrading: from 0.1.0](https://simverk.github.io/Mrg32k3a.NET/articles/upgrading.html#from-010).
 
 ## 0.1.0 - 2026-09-17
